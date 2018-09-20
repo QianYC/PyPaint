@@ -1,0 +1,6 @@
+
+*.jpg
+
+math\.nist\.gov/pub/MatrixMarket2/SPARSKIT/drivcav/e05r0200\.mtx\.gz
+
+__pycache__/
