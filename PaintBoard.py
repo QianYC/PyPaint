@@ -1,13 +1,17 @@
+import pickle
+
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPainter, QPen, QPixmap
-from PyQt5.QtWidgets import QWidget, QFileDialog
+from PyQt5.QtWidgets import QWidget, QFileDialog, QMessageBox
+from Detector import gDetect
 from Entity import Picture
-import pickle
+
 
 class PaintBoard(QWidget):
 	def __init__(self,parent=None):
 		super().__init__(parent)
 
+		self.__root=parent
 		self.__size=QSize(500,400)
 		self.__board=QPixmap(self.__size)
 		self.__pixPainter=QPainter(self.__board)
@@ -17,14 +21,15 @@ class PaintBoard(QWidget):
 		self.points = []
 		self.__picture=Picture()
 
-
-	def buttonClicked(self):
-		sender=self.sender()
-		print(sender.text())
+	def __changePixMap(self,pix):
+		self.__board=pix
+		self.__pixPainter = QPainter(self.__board)
 
 	def clear(self):
 		self.points=[]
 		self.__board.fill(Qt.white)
+		self.__root.updateText('')
+		self.__picture=Picture()
 		self.repaint()
 
 	def paintEvent(self, QPaintEvent):
@@ -67,27 +72,61 @@ class PaintBoard(QWidget):
 
 	def mouseReleaseEvent(self, QMouseEvent):
 		self.points.append([-1,-1])
-		print(self.points)
 		self.update()
 		# 每松一次鼠标就暂存一下画板内容
-		raw = self.__board.toImage()
-		self.__picture.setRawPicture(raw)
+		self.__picture.setRawPicture(self.__board)
 
 	def save(self):
-		path=QFileDialog.getSaveFileName(self,'保存你的画作','.\\','*.jpg;;*.pic')
+		path=QFileDialog.getSaveFileName(self,'保存你的画作','.\\','*.jpg;;*.pyp')
 		if path[1]=="*.jpg":
-			image=self.__board.toImage()
-			image.save(path[0])
-		elif path[1]=='*.pic':
+			image=self.__board.save(path[0])
+		elif path[1]=='*.pyp':
 			with open(path[0],'wb')as f:
 				pickle.dump(self.__picture,f)
 
 	def load(self):
-		path=QFileDialog.getOpenFileName(self,'选择一副画作打开','.\\','*.jpg;;*.pic')
+		path=QFileDialog.getOpenFileName(self,'选择一副画作打开','.\\','*.jpg;;*.pyp')
+		self.clear()
 		if path[1]=='*.jpg':
-			pass
-		elif path[1]=='*.pic':
+			self.__picture=Picture()
+			self.__board.load(path[0])
+			# self.__changePixMap(QPixmap(path[0]))
+			self.__picture.setRawPicture(self.__board)
+			self.repaint()
+		elif path[1]=='*.pyp':
 			with open(path[0],'rb')as f:
 				self.__picture=pickle.load(f)
-				print(self.__picture)
+				# self.__changePixMap(self.__picture.getRawPicture())
+				self.__board.copy(self.__picture.getRawPicture())
+				self.__root.updateText(self.__picture.getTags())
+				self.update()
+
+	def updateTag(self,tag):
+		self.__picture.setTags(tag)
+
+	def formatPicture(self):
+		pass
+
+	def viewRaw(self):
+		pix=self.__picture.getRawPicture()
+		if pix==None:
+			QMessageBox.warning(self,'注意','原图不存在！',QMessageBox.Yes,QMessageBox.Yes)
+		else:
+			# self.__changePixMap(pix)
+			self.__board.fill()
+			self.__board.fromImage(pix.toImage())
+			self.update()
+			pass
+
+	def viewFormalized(self):
+		pix=self.__picture.getGeneratedPicture()
+		path='pypaint_temp.jpg'
+
+		self.__board.save(path)
+		gDetect(path)
+
+		self.__board.fill()
+		self.__board.load(path)
+		self.__picture.setGeneratedPicture(self.__board)
+		self.update()
 
